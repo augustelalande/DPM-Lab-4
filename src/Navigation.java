@@ -1,8 +1,10 @@
-import lejos.nxt.LCD;
-
+import lejos.nxt.*;
 
 public class Navigation {
 	// put your navigation code here 
+	
+	public static double DEFAULT_ROTATION_SPEED = 50;
+	private int DEFAULT_FOWARD_SPEED = 100;
 	
 	private Odometer odo;
 	private TwoWheeledRobot robot;
@@ -12,6 +14,11 @@ public class Navigation {
 		this.robot = odo.getTwoWheeledRobot();
 	}
 	
+	public Navigation(Odometer odo, TwoWheeledRobot robot) {
+		this.odo = odo;
+		this.robot = robot;
+	}
+	
 	public void travelTo(double x, double y) {
 		// USE THE FUNCTIONS setForwardSpeed and setRotationalSpeed from TwoWheeledRobot!
 		
@@ -19,5 +26,10 @@ public class Navigation {
 	
 	public void turnTo(double angle) {
 		// USE THE FUNCTIONS setForwardSpeed and setRotationalSpeed from TwoWheeledRobot!
+		
+		robot.setRotationSpeed(DEFAULT_ROTATION_SPEED);
+		while(odo.getTheta() != angle){}
+		
+		robot.stop();
 	}
 }

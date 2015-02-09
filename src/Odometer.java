@@ -1,9 +1,10 @@
+import lejos.nxt.Motor;
 import lejos.util.Timer;
 import lejos.util.TimerListener;
 
 public class Odometer implements TimerListener {
 	public static final int DEFAULT_PERIOD = 25;
-	private TwoWheeledRobot robot;
+	private final TwoWheeledRobot robot;
 	private Timer odometerTimer;
 	private Navigation nav;
 	// position data
@@ -67,12 +68,42 @@ public class Odometer implements TimerListener {
 		}
 	}
 	
+	public double getX() {
+		double result;
+
+		synchronized (lock) {
+			result = x;
+		}
+
+		return result;
+	}
+
+	public double getY() {
+		double result;
+
+		synchronized (lock) {
+			result = y;
+		}
+
+		return result;
+	}
+
+	public double getTheta() {
+		double result;
+
+		synchronized (lock) {
+			result = theta;
+		}
+
+		return result;
+	}
+	
 	public TwoWheeledRobot getTwoWheeledRobot() {
 		return robot;
 	}
 	
-	public Navigation getNavigation() {
-		return this.nav;
+	public void getNavigation(Navigation navigation) {
+		navigation = nav;
 	}
 	
 	// mutators
@@ -81,6 +112,24 @@ public class Odometer implements TimerListener {
 			if (update[0]) x = pos[0];
 			if (update[1]) y = pos[1];
 			if (update[2]) theta = pos[2];
+		}
+	}
+	
+	public void setX(double x) {
+		synchronized (lock) {
+			this.x = x;
+		}
+	}
+
+	public void setY(double y) {
+		synchronized (lock) {
+			this.y = y;
+		}
+	}
+
+	public void setTheta(double theta) {
+		synchronized (lock) {
+			this.theta = theta;
 		}
 	}
 	

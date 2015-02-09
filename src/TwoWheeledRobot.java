@@ -1,9 +1,9 @@
 import lejos.nxt.NXTRegulatedMotor;
 
 public class TwoWheeledRobot {
-	public static final double DEFAULT_LEFT_RADIUS = 2.75;
-	public static final double DEFAULT_RIGHT_RADIUS = 2.75;
-	public static final double DEFAULT_WIDTH = 15.8;
+	public static final double DEFAULT_LEFT_RADIUS = 2.11;
+	public static final double DEFAULT_RIGHT_RADIUS = 2.11;
+	public static final double DEFAULT_WIDTH = 15.3;
 	private NXTRegulatedMotor leftMotor, rightMotor;
 	private double leftRadius, rightRadius, width;
 	private double forwardSpeed, rotationSpeed;
@@ -96,5 +96,11 @@ public class TwoWheeledRobot {
 			rightMotor.setSpeed(900);
 		else
 			rightMotor.setSpeed((int)rightSpeed);
+	}
+	
+	//stops motors on demand
+	public void stop(){
+		rightMotor.stop();
+		leftMotor.stop();
 	}
 }
