@@ -102,8 +102,8 @@ public class Odometer implements TimerListener {
 		return robot;
 	}
 	
-	public void getNavigation(Navigation navigation) {
-		navigation = nav;
+	public Navigation getNavigation() {
+		return nav;
 	}
 	
 	// mutators
