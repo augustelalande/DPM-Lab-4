@@ -1,73 +1,92 @@
-import lejos.nxt.Motor;
-import lejos.util.Timer;
-import lejos.util.TimerListener;
+import lejos.nxt.*;
 
-public class Odometer implements TimerListener {
-	public static final int DEFAULT_PERIOD = 25;
-	private final TwoWheeledRobot robot;
-	private Timer odometerTimer;
-	private Navigation nav;
-	// position data
+public class Odometer extends Thread {
+	// robot position
+	private double x, y, theta, leftWheelRadius, rightWheelRadius, wheelSeperation;
+	private final NXTRegulatedMotor leftMotor, rightMotor;
+
+	// odometer update period, in ms
+	private static final long ODOMETER_PERIOD = 25;
+
+	// lock object for mutual exclusion
 	private Object lock;
-	private double x, y, theta;
-	private double [] oldDH, dDH;
-	
-	public Odometer(TwoWheeledRobot robot, int period, boolean start) {
-		// initialise variables
-		this.robot = robot;
-		this.nav = new Navigation(this);
-		odometerTimer = new Timer(period, this);
+
+	// constructor
+	public Odometer(double leftWheelRadius, double rightWheelRadius, 
+			double wheelSeperation, NXTRegulatedMotor leftMotor, NXTRegulatedMotor rightMotor) {
 		x = 0.0;
 		y = 0.0;
-		theta = 0.0;
-		oldDH = new double [2];
-		dDH = new double [2];
+		theta = Math.PI/2;
 		lock = new Object();
+		this.leftWheelRadius = leftWheelRadius;
+		this.rightWheelRadius = rightWheelRadius;
+		this.wheelSeperation = wheelSeperation;
+		this.leftMotor = leftMotor;
+		this.rightMotor = rightMotor;
 		
-		// start the odometer immediately, if necessary
-		if (start)
-			odometerTimer.start();
+		leftMotor.resetTachoCount();
+		rightMotor.resetTachoCount();
 	}
 	
-	public Odometer(TwoWheeledRobot robot) {
-		this(robot, DEFAULT_PERIOD, false);
-	}
-	
-	public Odometer(TwoWheeledRobot robot, boolean start) {
-		this(robot, DEFAULT_PERIOD, start);
-	}
-	
-	public Odometer(TwoWheeledRobot robot, int period) {
-		this(robot, period, false);
-	}
-	
-	public void timedOut() {
-		robot.getDisplacementAndHeading(dDH);
-		dDH[0] -= oldDH[0];
-		dDH[1] -= oldDH[1];
-		
-		// update the position in a critical region
-		synchronized (lock) {
-			theta += dDH[1];
-			theta = fixDegAngle(theta);
+	//previous tachometer values
+	double oldLeftTacho = 0;
+	double oldRightTacho = 0;
+
+	// run method (required for Thread)
+	public void run() {
+		long updateStart, updateEnd;
+
+		while (true) {
+			updateStart = System.currentTimeMillis();
 			
-			x += dDH[0] * Math.sin(Math.toRadians(theta));
-			y += dDH[0] * Math.cos(Math.toRadians(theta));
+			double leftTacho = leftMotor.getTachoCount();
+			double rightTacho = rightMotor.getTachoCount();
+			
+			double deltaLeftTacho = Math.toRadians(leftTacho - oldLeftTacho);
+			double deltaRightTacho = Math.toRadians(rightTacho - oldRightTacho);
+			
+			//calculate the arc length traveled relative to the center of the robot 
+			double deltaC = (deltaRightTacho*rightWheelRadius + deltaLeftTacho*leftWheelRadius)/2;
+			//calculate the angle relative to the (0,0) reference point
+			double deltaTheta = (deltaRightTacho*rightWheelRadius - deltaLeftTacho*leftWheelRadius)/wheelSeperation;
+
+			synchronized (lock) {
+				// don't use the variables x, y, or theta anywhere but here!
+				
+				theta += deltaTheta;
+				
+				//update the x,y value and convert them to Cartesian coordinates		
+				x += deltaC*Math.cos(theta+(deltaTheta/2));
+				y += deltaC*Math.sin(theta+(deltaTheta/2));
+			}
+			
+			oldLeftTacho = leftTacho;
+			oldRightTacho = rightTacho;
+
+			// this ensures that the odometer only runs once every period
+			updateEnd = System.currentTimeMillis();
+			if (updateEnd - updateStart < ODOMETER_PERIOD) {
+				try {
+					Thread.sleep(ODOMETER_PERIOD - (updateEnd - updateStart));
+				} catch (InterruptedException e) {
+					// there is nothing to be done here because it is not
+					// expected that the odometer will be interrupted by
+					// another thread
+				}
+			}
 		}
-		
-		oldDH[0] += dDH[0];
-		oldDH[1] += dDH[1];
 	}
-	
+
 	// accessors
-	public void getPosition(double [] pos) {
+	public void getPosition(double[] position) {
+		// ensure that the values don't change while the odometer is running
 		synchronized (lock) {
-			pos[0] = x;
-			pos[1] = y;
-			pos[2] = theta;
+			position[0] = x;
+			position[1] = y;
+			position[2] = theta;
 		}
 	}
-	
+
 	public double getX() {
 		double result;
 
@@ -97,24 +116,20 @@ public class Odometer implements TimerListener {
 
 		return result;
 	}
-	
-	public TwoWheeledRobot getTwoWheeledRobot() {
-		return robot;
-	}
-	
-	public Navigation getNavigation() {
-		return nav;
-	}
-	
+
 	// mutators
-	public void setPosition(double [] pos, boolean [] update) {
+	public void setPosition(double[] position, boolean[] update) {
+		// ensure that the values don't change while the odometer is running
 		synchronized (lock) {
-			if (update[0]) x = pos[0];
-			if (update[1]) y = pos[1];
-			if (update[2]) theta = pos[2];
+			if (update[0])
+				x = position[0];
+			if (update[1])
+				y = position[1];
+			if (update[2])
+				theta = position[2];
 		}
 	}
-	
+
 	public void setX(double x) {
 		synchronized (lock) {
 			this.x = x;
@@ -131,22 +146,5 @@ public class Odometer implements TimerListener {
 		synchronized (lock) {
 			this.theta = theta;
 		}
-	}
-	
-	// static 'helper' methods
-	public static double fixDegAngle(double angle) {		
-		if (angle < 0.0)
-			angle = 360.0 + (angle % 360.0);
-		
-		return angle % 360.0;
-	}
-	
-	public static double minimumAngleFromTo(double a, double b) {
-		double d = fixDegAngle(b - a);
-		
-		if (d < 180.0)
-			return d;
-		else
-			return d - 360.0;
 	}
 }

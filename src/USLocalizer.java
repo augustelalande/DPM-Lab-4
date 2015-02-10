@@ -2,46 +2,49 @@ import lejos.nxt.UltrasonicSensor;
 
 public class USLocalizer {
 	public enum LocalizationType { FALLING_EDGE, RISING_EDGE };
-	public static double ROTATION_SPEED = 30;
-	public static int MAX_WALL_DISTANCE = 20;
-	public static double DEFAULT_ROTATION_SPEED = 50;
+	
+	public static int MAX_WALL_DISTANCE = 30;
+	public static int DEFAULT_ROTATION_SPEED = 100;
 
 	private Odometer odo;
-	private TwoWheeledRobot robot;
 	private UltrasonicSensor us;
-	private LocalizationType locType;
+	private Navigator nav;
 	
-	public USLocalizer(Odometer odo, UltrasonicSensor us, LocalizationType locType) {
+	public USLocalizer(Odometer odo, UltrasonicSensor us, Navigator nav) {
 		this.odo = odo;
-		this.robot = odo.getTwoWheeledRobot();
 		this.us = us;
-		this.locType = locType;
+		this.nav = nav;
 		
 		// switch off the ultrasonic sensor
 		us.off();
 	}
 	
-	public void doLocalization() {
-		double [] pos = new double [3];
+	public void doLocalization(LocalizationType locType) {
+		
 		double angleA, angleB;
 		
 		if (locType == LocalizationType.FALLING_EDGE) {
 
 			// rotate the robot until it sees no wall
-			robot.setRotationSpeed(DEFAULT_ROTATION_SPEED);
+			nav.rotate(DEFAULT_ROTATION_SPEED, Navigator.RotationType.ClockWise);
 			
 			while(isWallDetected()){
 			}
+			
+			try { Thread.sleep(1000); } catch (InterruptedException e) {}
+			
 			// keep rotating until the robot sees a wall, then latch the angle
 			while(!isWallDetected()){
 			}
 			
-			robot.stop();
-			odo.getPosition(pos);
-			angleA = pos[2];
+			nav.stop();
+			
+			angleA = odo.getTheta();
 
 			// switch direction and wait until it sees no wall
-			robot.setRotationSpeed(-DEFAULT_ROTATION_SPEED);
+			nav.rotate(DEFAULT_ROTATION_SPEED, Navigator.RotationType.CounterClockWise);
+			
+			try { Thread.sleep(1000); } catch (InterruptedException e) {}
 			
 			while(isWallDetected()){
 			}
@@ -49,29 +52,17 @@ public class USLocalizer {
 			while(!isWallDetected()){
 			}
 			
-			robot.stop();
-			odo.getPosition(pos);
-			angleB = pos[2];
+			nav.stop();
+			
+			angleB = odo.getTheta();
 
 			// angleA is clockwise from angleB, so assume the average of the
 			// angles to the right of angleB is 45 degrees past 'north'
 
-			double deltaAngle = Odometer.minimumAngleFromTo(angleA, angleB);
-			double orientation = 0;
-			
-			if(angleA < angleB)
-			{
-				orientation = 45 - deltaAngle/2;
-			}
-			else
-			{
-				orientation = 225 - deltaAngle/2;
-			}
-
-			orientation = Odometer.fixDegAngle(orientation);
+			double orientation = findOrientation(angleA, angleB);
 
 			// update the odometer position (example to follow:)
-			odo.setPosition(new double [] {0.0, 0.0, orientation}, new boolean [] {false, false, true});
+			odo.setTheta(orientation);
 		} else {
 			/*
 			 * The robot should turn until it sees the wall, then look for the
@@ -97,15 +88,28 @@ public class USLocalizer {
 		
 		// there will be a delay here
 		distance = us.getDistance();
+		
+		// filter out large values
+		if (distance > 50)
+			distance = 50;
 				
 		return distance;
 	}
 	
-	private boolean isWallDetected(){
+	private boolean isWallDetected() 
+	{
 		if(getFilteredData() < MAX_WALL_DISTANCE)
 			return true;
 			
 		return false;
 	}
-
+	
+	public double findOrientation(double angleA, double angleB)
+	{
+		double deltaAngle = angleB - angleA;
+		
+		double orientation = (Math.PI/4) + (deltaAngle/2);
+		
+		return orientation;
+	}
 }

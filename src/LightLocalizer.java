@@ -2,55 +2,49 @@ import lejos.nxt.*;
 
 public class LightLocalizer {
 	private Odometer odo;
-	private TwoWheeledRobot robot;
 	private ColorSensor cs;
- 	private Navigation navigation;
+ 	private Navigator nav;
 	
-	private int DEFAULT_FOWARD_SPEED = 40;
+ 	private int DEFAULT_ROTATE_SPEED = 100;
 	public static double MAX_LINE_VALUE = 300;
 	public static double DISTANCE_FROM_ROBOT_CENTER_TO_COLORSENSOR = 12.5;
 	
-	public LightLocalizer(Odometer odo, ColorSensor cs) {
+	public LightLocalizer(Odometer odo, ColorSensor cs, Navigator nav) {
 		this.odo = odo;
-		this.robot = odo.getTwoWheeledRobot();
 		this.cs = cs;
-		this.navigation = odo.getNavigation();
+		this.nav = nav;
 		
 		// turn on the light
 		cs.setFloodlight(true);
 	}
 	
 	public void doLocalization() {
-		// drive to location listed in tutorial
-		// start rotating and clock all 4 gridlines
-		// do trig to compute (0,0) and 0 degrees
-		// when done travel to (0,0) and turn to 0 degrees
 		
-		//set Y
-		navigation.turnTo(0);
-//		robot.setForwardSpeed(DEFAULT_FOWARD_SPEED);
+		double[] angles = new double[4];
+		
+		
+		nav.turnTo(45, false);
+		nav.travelDistance(12);
+		spin(angles);
+		
+		double xPos = calculatePos(angles[0], angles[2]);
+		double yPos = calculatePos(angles[1], angles[3]);
+		
+		odo.setX(xPos);
+		odo.setY(yPos);
+		
+		nav.travelTo(0, 0);
+		nav.turnTo(90, false);
+		
+//		nav.rotate(DEFAULT_ROTATE_SPEED, Navigator.RotationType.CounterClockWise);
 //		
-//		while(!isLineDetected()){
+//		while(!isLineDetected() && !isInRange(90, 20))
+//		{
+//			try {Thread.sleep(30);} catch (Exception e) {}
 //		}
 //		
-//		robot.stop();
-//		double newY = 0 + DISTANCE_FROM_ROBOT_CENTER_TO_COLORSENSOR;
-//		odo.setPosition(new double [] {0.0, newY, 0.0}, new boolean [] {false, true, false});
-//		
-//		///set X
-//		navigation.turnTo(90);
-//		robot.setForwardSpeed(DEFAULT_FOWARD_SPEED);
-//		
-//		while(!isLineDetected()){
-//		}
-//		
-//		robot.stop();
-//		double newX = 0 + DISTANCE_FROM_ROBOT_CENTER_TO_COLORSENSOR;
-//		odo.setPosition(new double [] {newX, 0.0, 0.0}, new boolean [] {true, false, false});
-//		
-//		//travel to (0,0,0)
-//		navigation.travelTo(0, 0);
-//		navigation.turnTo(0);
+//		nav.stop();
+//		odo.setTheta(Math.PI/2);
 	}
 	
 	public boolean isLineDetected(){
@@ -60,5 +54,63 @@ public class LightLocalizer {
 		return false;
 	}
 	
-
+	public void spin(double[] angles){
+		int i = 0;
+		
+		(new Thread() {public void run() {nav.turnAngle(2*Math.PI);}}).start();
+		try {Thread.sleep(50);} catch (Exception e) {}
+		
+		while(nav.isNavigating() && i < 4){
+			if(isLineDetected()){
+				angles[i] = odo.getTheta();
+				i++;
+				try {Thread.sleep(300);} catch (Exception e) {}
+			}
+		}
+	}
+	
+	public double calculatePos(double firstAngle, double secondAngle){
+		return (-DISTANCE_FROM_ROBOT_CENTER_TO_COLORSENSOR*Math.cos((secondAngle-firstAngle)/2));
+	}
+	
+//	public void allignWithY()
+//	{
+//		if(isInRange(90, 0.5))
+//		{
+//			return;
+//		}
+//		else if(odo.getTheta() < Math.PI/2)
+//		{
+//			nav.rotate(DEFAULT_ROTATE_SPEED, Navigator.RotationType.CounterClockWise);
+//			
+//			while(!isLineDetected() && !isInRange(90, 20))
+//			{
+//				try {Thread.sleep(30);} catch (Exception e) {}
+//			}
+//			
+//			nav.stop();
+//			odo.setTheta(Math.PI/2);
+//		}
+//		else
+//		{
+//			nav.rotate(DEFAULT_ROTATE_SPEED, Navigator.RotationType.ClockWise);
+//			
+//			while(!isLineDetected() && !isInRange(90, 20))
+//			{
+//				try {Thread.sleep(30);} catch (Exception e) {}
+//			}
+//			
+//			nav.stop();
+//			odo.setTheta(Math.PI/2);
+//		}
+//	}
+//	
+	public boolean isInRange(double angle, double error)//in degrees
+	{
+		if(odo.getTheta() > Math.toRadians(angle - error) || odo.getTheta() < Math.toRadians(angle + error)){
+			return true;
+		}
+			
+		return false;
+	}
 }
