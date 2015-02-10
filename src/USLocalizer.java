@@ -5,6 +5,7 @@ public class USLocalizer {
 	
 	public static int MAX_WALL_DISTANCE = 30;
 	public static int DEFAULT_ROTATION_SPEED = 100;
+	public static int THRESHOLD_SENSOR_DISTANCE = 50;
 
 	private Odometer odo;
 	private UltrasonicSensor us;
@@ -53,15 +54,9 @@ public class USLocalizer {
 			}
 			
 			nav.stop();
-			
 			angleB = odo.getTheta();
 
-			// angleA is clockwise from angleB, so assume the average of the
-			// angles to the right of angleB is 45 degrees past 'north'
-
-			double orientation = findOrientation(angleA, angleB);
-
-			// update the odometer position (example to follow:)
+			double orientation = findOrientation(angleA, angleB, locType);
 			odo.setTheta(orientation);
 		} else {
 			/*
@@ -71,27 +66,51 @@ public class USLocalizer {
 			 * will face toward the wall for most of it.
 			 */
 			
-			//
-			// FILL THIS IN
-			//
+			// rotate the robot until it sees a wall
+			nav.rotate(DEFAULT_ROTATION_SPEED, Navigator.RotationType.ClockWise);
+
+			while(!isWallDetected()){
+			}
+
+			try { Thread.sleep(1000); } catch (InterruptedException e) {}
+
+			// keep rotating until the robot sees no wall, then latch the angle
+			while(isWallDetected()){
+			}
+
+			nav.stop();
+
+			angleA = odo.getTheta();
+
+			// switch direction and wait until it sees a wall
+			nav.rotate(DEFAULT_ROTATION_SPEED, Navigator.RotationType.CounterClockWise);
+
+			try { Thread.sleep(1000); } catch (InterruptedException e) {}
+
+			while(!isWallDetected()){
+			}
+			// keep rotating until the robot sees no wall, then latch the angle
+			while(isWallDetected()){
+			}
+
+			nav.stop();
+			angleB = odo.getTheta();
+
+			double orientation = findOrientation(angleA, angleB, locType);
+			odo.setTheta(orientation);
 		}
 	}
 	
 	private int getFilteredData() {
 		int distance;
 		
-		// do a ping
 		us.ping();
-		
-		// wait for the ping to complete
 		try { Thread.sleep(50); } catch (InterruptedException e) {}
 		
-		// there will be a delay here
 		distance = us.getDistance();
 		
-		// filter out large values
-		if (distance > 50)
-			distance = 50;
+		if (distance > THRESHOLD_SENSOR_DISTANCE)
+			distance = THRESHOLD_SENSOR_DISTANCE;
 				
 		return distance;
 	}
@@ -104,11 +123,18 @@ public class USLocalizer {
 		return false;
 	}
 	
-	public double findOrientation(double angleA, double angleB)
+	public double findOrientation(double angleA, double angleB, LocalizationType locType)
 	{
 		double deltaAngle = angleB - angleA;
 		
-		double orientation = (Math.PI/4) + (deltaAngle/2);
+		double orientation;
+		
+		if(locType == LocalizationType.FALLING_EDGE) {
+			orientation = (Math.PI/4) + (deltaAngle/2);
+		}
+		else {
+			orientation = (5*Math.PI/4)+ (deltaAngle/2);
+		}
 		
 		return orientation;
 	}

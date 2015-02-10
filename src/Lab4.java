@@ -21,7 +21,6 @@ public class Lab4 {
 		USLocalizer usl = new USLocalizer(odo, us, nav);;
 		LightLocalizer lsl = new LightLocalizer(odo, cs, nav);
 
-		//clear the display
 		LCD.clear();
 
 		// give user options
